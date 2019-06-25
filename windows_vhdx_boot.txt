@@ -1,0 +1,48 @@
+Commands to add an existing VHD/VHDx to your boot menu:
+
+$regex = [regex] "\{\w{8}-\w{4}-\w{4}-\w{4}-\w{12}\}"
+$new_guid=$(bcdedit /copy `{current`} /d "entry_name")
+$new_guid=$regex.match($new_guid).value
+
+bcdedit /set $new_guid device vhd=[C:]\Image.vhdx
+bcdedit /set $new_guid osdevice vhd=[C:]\Image.vhdx
+bcdedit /set $new_guid detecthal on
+bcdedit /set $new_guid debug off
+bcdedit /default $new_guid
+bcdedit /timeout 10
+
+Enable Hyper-V role:
+
+# Mount the VHD or VHDX file
+$mountedVHD = [string](Mount-VHD -Path $VHDImage -Passthru | Get-Disk | Get-Partition | `
+  Get-Volume | Where-Object -Property FileSystemLabel -NE "System Reserved").DriveLetter + ":\"
+$mountedVHD = $mountedVHD.Substring($mountedVHD.Length-3,3)
+
+Resize-VHD $VHDImage -SizeBytes
+
+dism /Image:$mountedVHD /Enable-Feature /FeatureName:Microsoft-Hyper-V /All
+dism /Image:$mountedVHD /Enable-Feature /FeatureName:RSAT-Hyper-V-Tools-Feature /All
+dism /Image:$mountedVHD /Enable-Feature /FeatureName:Microsoft-Hyper-V-Management-Clients /All
+dism /Image:$mountedVHD /Enable-Feature /FeatureName:Microsoft-Hyper-V-Management-PowerShell /All
+
+$MaxSize = (Get-PartitionSupportedSize -DriveLetter E).sizeMax
+Resize-Partition -DriveLetter E -Size $MaxSize
+
+Dismount-VHD $VHDImage
+
+
+=========
+
+OLD INFO:
+
+bcdedit /copy '{current}' /d "entry_name"
+bcdedit /set '{$guid}' device vhd=[C:]\Image.vhdx
+bcdedit /set '{guid}' osdevice vhd=[C:]\Image.vhdx
+bcdedit /set '{guid}' detecthal on
+
+set default new entry to boot:
+bcdedit /default '{guid}'
+
+References:
+http://technet.microsoft.com/en-us/library/dd799299(v=ws.10).aspx
+https://github.com/rbellamy/WindowsPowerShell/blob/0281682ced5bedc17f1b3e9c1435e5d9e8b8f444/Scripts/add-bcd-vhd.ps1
