@@ -1,0 +1,22 @@
+$username = "domain\user"
+
+# prepare user profile in GPO
+$sid = ((New-Object System.Security.Principal.NTAccount($username)).Translate([System.Security.Principal.SecurityIdentifier])).Value
+secedit /export /cfg "export.inf"
+$sids = (Select-String "export.inf" -Pattern "SeServiceLogonRight").Line
+foreach ($line in @("[Unicode]", "Unicode=yes", "[System Access]", "[Event Audit]", "[Registry Values]", "[Version]", "signature=`"`$CHICAGO$`"", "Revision=1", "[Profile Description]", "Description=GrantLogOnAsAService security template", "[Privilege Rights]", "SeServiceLogonRight = *$sids,*$sid")){
+    Add-Content "import.inf" $line
+}
+
+secedit /import /db "secedt.sdb" /cfg "import.inf"
+secedit /configure /db "secedt.sdb"
+Remove-Item -Path "import.inf" -Force
+Remove-Item -Path "export.inf" -Force
+Remove-Item -Path "secedt.sdb" -Force
+
+gpupdate /force
+
+# configure jenkins slave service
+sc.exe config "jenkinsslave-c__jenkins_azure" obj="$username" password="$password"
+sc.exe failure "jenkinsslave-c__jenkins_azure" reset=360 actions=restart/180000
+Restart-Service -Name "jenkinsslave-c__jenkins_azure" ; Get-Service "jenkinsslave-c__jenkins_azure"
