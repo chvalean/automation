@@ -1,0 +1,10 @@
+# use SPN Client ID as username
+$credential = Get-Credential
+Connect-AzAccount -ServicePrincipal -Credential $credential -TenantId "ID"
+
+$nic = Get-AzureRmNetworkInterface -ResourceGroupName "rg_name" -name "nic_name"
+$nic.EnableAcceleratedNetworking = $true
+$nic | Set-AzureRmNetworkInterface
+
+# with az
+az network nic update --name NICNAME --resource-group "rg_name" --accelerated-networking true –subscription SUBSCRIPTION_ID 
